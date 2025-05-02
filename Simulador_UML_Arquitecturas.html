@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+  <meta charset="UTF-8">
+  <title>Simulador UML de Arquitecturas de Software</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    canvas { display: block; }
+    #menu {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      z-index: 10;
+      max-width: 320px;
+    }
+    #menu button {
+      margin: 4px;
+    }
+    #info {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <strong>Selecciona una arquitectura:</strong><br>
+    <button onclick="loadArchitecture('mvc')">MVC</button>
+    <button onclick="loadArchitecture('capas')">Capas</button>
+    <button onclick="loadArchitecture('clienteServidor')">Cliente-Servidor</button>
+    <button onclick="loadArchitecture('microservicios')">Microservicios</button>
+    <div id="info"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script>
+    let scene, camera, renderer, objects = [], labels = [], lines = [], backgroundPlane;
+
+    init();
+    loadArchitecture('mvc');
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+      camera.position.z = 10;
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const planeGeometry = new THREE.PlaneGeometry(50, 30);
+      const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xd2b48c });
+      backgroundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+      backgroundPlane.position.z = -5;
+      scene.add(backgroundPlane);
+
+      animate();
+    }
+
+    function clearScene() {
+      objects.forEach(o => scene.remove(o));
+      labels.forEach(l => scene.remove(l));
+      lines.forEach(l => scene.remove(l));
+      objects = [];
+      labels = [];
+      lines = [];
+    }
+
+    function createComponent(name, x, y, z) {
+      const geometry = new THREE.BoxGeometry(2, 1, 0.3);
+      const material = new THREE.MeshBasicMaterial({ color: 0x1565c0 });
+      const box = new THREE.Mesh(geometry, material);
+      box.position.set(x, y, z);
+      box.scale.set(0.01, 0.01, 0.01);
+      scene.add(box);
+      objects.push(box);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 64;
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, 256, 64);
+      context.fillStyle = '#000';
+      context.font = '20px Arial';
+      context.fillText(name, 10, 40);
+      const texture = new THREE.CanvasTexture(canvas);
+      const labelMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+      const label = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.5), labelMaterial);
+      label.position.set(x, y + 0.8, z);
+      scene.add(label);
+      labels.push(label);
+
+      new TWEEN.Tween(box.scale).to({ x: 1, y: 1, z: 1 }, 600).start();
+
+      return box;
+    }
+
+    function connectComponents(a, b) {
+      const material = new THREE.LineBasicMaterial({ color: 0x000000 });
+      const points = [ a.position, b.position ];
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geometry, material);
+      scene.add(line);
+      lines.push(line);
+    }
+
+    function loadArchitecture(type) {
+      clearScene();
+      const infoBox = document.getElementById('info');
+      let comps = [];
+
+      switch(type) {
+        case 'mvc':
+          comps.push(createComponent('Modelo', -3, 0, 0));
+          comps.push(createComponent('Vista', 0, 0, 0));
+          comps.push(createComponent('Controlador', 3, 0, 0));
+          connectComponents(comps[0], comps[2]);
+          connectComponents(comps[2], comps[1]);
+          infoBox.innerHTML = "<strong>MVC:</strong> Arquitectura usada en sistemas web como Laravel, Django o Ruby on Rails.";
+          break;
+        case 'capas':
+          comps.push(createComponent('Presentación', 0, 2, 0));
+          comps.push(createComponent('Lógica de Negocio', 0, 0, 0));
+          comps.push(createComponent('Datos', 0, -2, 0));
+          connectComponents(comps[0], comps[1]);
+          connectComponents(comps[1], comps[2]);
+          infoBox.innerHTML = "<strong>Capas:</strong> Utilizada en sistemas como .NET o Java EE tradicionales.";
+          break;
+        case 'clienteServidor':
+          comps.push(createComponent('Cliente', -2, 0, 0));
+          comps.push(createComponent('Servidor', 2, 0, 0));
+          connectComponents(comps[0], comps[1]);
+          infoBox.innerHTML = "<strong>Cliente-Servidor:</strong> Base de sistemas como Outlook, FTP o bases de datos tradicionales.";
+          break;
+        case 'microservicios':
+          comps.push(createComponent('Gateway API', 0, 2, 0));
+          comps.push(createComponent('Usuarios', -3, 0, 0));
+          comps.push(createComponent('Productos', 0, 0, 0));
+          comps.push(createComponent('Pagos', 3, 0, 0));
+          connectComponents(comps[0], comps[1]);
+          connectComponents(comps[0], comps[2]);
+          connectComponents(comps[0], comps[3]);
+          infoBox.innerHTML = "<strong>Microservicios:</strong> Aplicado en Netflix, Spotify, Uber y otras plataformas escalables.";
+          break;
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      TWEEN.update();
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>
